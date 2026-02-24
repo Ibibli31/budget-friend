@@ -1,0 +1,24 @@
+CREATE TABLE users (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  username VARCHAR UNIQUE NOT NULL,
+  email VARCHAR UNIQUE NOT NULL, 
+  first_name VARCHAR NOT NULL, 
+  last_name VARCHAR NOT NULL
+);
+
+CREATE TABLE categories(
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name VARCHAR NOT NULL,
+  user_id BIGINT REFERENCES users (id) ON DELETE CASCADE -- null if default, not null if user 
+);
+
+CREATE TABLE transactions(
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  amount DECIMAL(10,2) NOT NULL, 
+  date DATE NOT NULL,
+  merchant VARCHAR NOT NULL, 
+  description TEXT, -- nullable (optional)
+  created_at TIMESTAMPTZ NOT NULL, 
+  user_id BIGINT REFERENCES users (id) ON DELETE CASCADE NOT NULL,
+  category_id BIGINT REFERENCES categories (id) ON DELETE SET NULL
+);
