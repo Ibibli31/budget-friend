@@ -1,0 +1,95 @@
+{
+  "period": "March 12, 2004 to April 12, 2004",
+  "opening_balance": 4247.14,
+  "closing_balance": 3664.79,
+  "transactions": [
+    {
+      "date": "15 Mar 2004",
+      "description": "Transfer",
+      "withdrawal": null,
+      "deposit": 85.0,
+      "balance": null,
+      "merchant": "Bank transaction"
+    },
+    {
+      "date": "15 Mar 2004",
+      "description": "Interest paid",
+      "withdrawal": null,
+      "deposit": 0.15,
+      "balance": null,
+      "merchant": "Bank transaction"
+    },
+    {
+      "date": "15 Mar 2004",
+      "description": "ATM withdrawal",
+      "withdrawal": 100.0,
+      "deposit": null,
+      "balance": null,
+      "merchant": "Bank transaction"
+    },
+    {
+      "date": "15 Mar 2004",
+      "description": "Interac purchase -1361 - Nasr Foods",
+      "withdrawal": 47.82,
+      "deposit": null,
+      "balance": 4184.47,
+      "merchant": "Nasr Foods"
+    },
+    {
+      "date": "17 Mar 2004",
+      "description": "Overdraft interest",
+      "withdrawal": 0.93,
+      "deposit": null,
+      "balance": 4183.54,
+      "merchant": "Bank transaction"
+    },
+    {
+      "date": "18 Mar 2004",
+      "description": "Cheque #30",
+      "withdrawal": 40.0,
+      "deposit": null,
+      "balance": null,
+      "merchant": "Bank transaction"
+    },
+    {
+      "date": "18 Mar 2004",
+      "description": "Cheque #31",
+      "withdrawal": 148.11,
+      "deposit": null,
+      "balance": 3995.43,
+      "merchant": "Bank transaction"
+    },
+    {
+      "date": "19 Mar 2004",
+      "description": "ATM withdrawal",
+      "withdrawal": 60.0,
+      "deposit": null,
+      "balance": 3935.43,
+      "merchant": "Bank transaction"
+    },
+    {
+      "date": "22 Mar 2004",
+      "description": "ATM withdrawal",
+      "withdrawal": 20.0,
+      "deposit": null,
+      "balance": null,
+      "merchant": "Bank transaction"
+    },
+    {
+      "date": "22 Mar 2004",
+      "description": "Interac purchase - 1361 - The Bay",
+      "withdrawal": 125.13,
+      "deposit": null,
+      "balance": null,
+      "merchant": "The Bay"
+    },
+    {
+      "date": "22 Mar 2004",
+      "description": "Interac purchase - 1361 - Highland",
+      "withdrawal": 6.94,
+      "deposit": null,
+      "balance": 3783.36,
+      "merchant": "Highland"
+    }
+  ]
+}

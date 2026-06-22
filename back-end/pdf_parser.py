@@ -1,6 +1,8 @@
+import json
+import sys
 import pymupdf
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Optional
 
 
@@ -11,6 +13,7 @@ class Transaction:
     withdrawal: Optional[float]
     deposit: Optional[float]
     balance: Optional[float]
+    merchant: str = "Bank transaction"
 
 
 @dataclass
@@ -134,12 +137,14 @@ def _parse_transaction_rows(
 
     def flush():
         if current:
+            description = " ".join(current["desc_parts"]).strip()
             transactions.append(Transaction(
                 date=current["date"],
-                description=" ".join(current["desc_parts"]).strip(),
+                description=description,
                 withdrawal=current["withdrawal"],
                 deposit=current["deposit"],
                 balance=current["balance"],
+                merchant=_extract_merchant(description),
             ))
 
     for row in data_rows:
@@ -243,6 +248,7 @@ def parse_rbc_statement(pdf_path: str) -> dict:
 
     data_rows = _group_words_by_row(data_words)
     transactions = _parse_transaction_rows(data_rows, cols)
+    transactions = _assign_years(transactions, period)
     opening_balance = _extract_labelled_amount(all_words, "opening", "balance")
     closing_balance = _extract_labelled_amount(all_words, "closing", "balance")
 
@@ -295,6 +301,55 @@ def _find_closing_balance_y(words: list, after_y: float) -> Optional[float]:
     return None
 
 
+def _extract_merchant(description: str) -> str:
+    parts = description.split(" - ")
+    return parts[-1].strip() if len(parts) >= 2 else "Bank transaction"
+
+
+_MONTH_NUM = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def _assign_years(transactions: list, period: Optional[str]) -> list:
+    """Append the correct year to each transaction date using the statement period."""
+    if not period or not transactions:
+        return transactions
+
+    match = re.search(
+        r"(\w+)\s+\d+,\s+(\d{4})\s+to\s+(\w+)\s+\d+,\s+(\d{4})", period
+    )
+    if not match:
+        return transactions
+
+    start_month_name, start_year, _, end_year = match.groups()
+    start_year, end_year = int(start_year), int(end_year)
+    start_month = _MONTH_NUM.get(start_month_name[:3].lower(), 1)
+
+    updated = []
+    for t in transactions:
+        parts = t.date.split()
+        month_abbr = parts[1].lower()[:3] if len(parts) >= 2 else ""
+        month_num = _MONTH_NUM.get(month_abbr, 0)
+
+        if start_year == end_year:
+            year = start_year
+        else:
+            year = start_year if month_num >= start_month else end_year
+
+        updated.append(Transaction(
+            date=f"{t.date} {year}",
+            description=t.description,
+            withdrawal=t.withdrawal,
+            deposit=t.deposit,
+            balance=t.balance,
+            merchant=t.merchant,
+        ))
+
+    return updated
+
+
 def _extract_labelled_amount(words: list, *label_words: str) -> Optional[float]:
     """
     Find a row containing all label_words and return the rightmost numeric value on it.
@@ -316,7 +371,8 @@ def _extract_labelled_amount(words: list, *label_words: str) -> Optional[float]:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    result = parse_rbc_statement("./sample_statement.pdf")
+    pdf_path = sys.argv[1] if len(sys.argv) > 1 else "./sample_statement.pdf"
+    result = parse_rbc_statement(pdf_path)
 
     print(f"Period       : {result['period']}")
     print(f"Opening bal  : ${result['opening_balance']:,.2f}")
@@ -329,3 +385,14 @@ if __name__ == "__main__":
         d = f"+${t.deposit:>8.2f}" if t.deposit else " " * 10
         b = f"  bal=${t.balance:,.2f}" if t.balance else ""
         print(f"  {t.date:<10}  {t.description:<40}  {w}  {d}{b}")
+
+    output = {
+        "period": result["period"],
+        "opening_balance": result["opening_balance"],
+        "closing_balance": result["closing_balance"],
+        "transactions": [asdict(t) for t in result["transactions"]],
+    }
+    json_path = pdf_path.replace(".pdf", ".json")
+    with open(json_path, "w") as f:
+        json.dump(output, f, indent=2)
+    print(f"\nJSON written to {json_path}")
