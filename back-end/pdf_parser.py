@@ -201,20 +201,8 @@ def _parse_transaction_rows(
     return transactions
 
 
-def parse_rbc_statement(pdf_path: str) -> dict:
-    """
-    Parse an RBC personal chequing/savings statement PDF.
-
-    Returns:
-        {
-            "period": "March 12, 2004 to April 12, 2004",
-            "account_number": "02782-5094431",
-            "opening_balance": 4247.14,
-            "closing_balance": 3664.79,
-            "transactions": [Transaction, ...]
-        }
-    """
-    doc = pymupdf.open(pdf_path)
+def _parse_doc(doc) -> dict:
+    """Core parsing logic shared by both file-path and bytes entry points."""
     all_words = []
 
     for page in doc:
@@ -259,6 +247,13 @@ def parse_rbc_statement(pdf_path: str) -> dict:
         "transactions": transactions,
     }
 
+
+def parse_rbc_statement(pdf_path: str) -> dict:
+    return _parse_doc(pymupdf.open(pdf_path))
+
+
+def parse_rbc_statement_from_bytes(pdf_bytes: bytes) -> dict:
+    return _parse_doc(pymupdf.open(stream=pdf_bytes, filetype="pdf"))
 
 
 # helper functions
@@ -371,28 +366,39 @@ def _extract_labelled_amount(words: list, *label_words: str) -> Optional[float]:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    pdf_path = sys.argv[1] if len(sys.argv) > 1 else "./sample_statement.pdf"
-    result = parse_rbc_statement(pdf_path)
+    if len(sys.argv) > 1:
+        pdf_path = sys.argv[1]
+        result = parse_rbc_statement(pdf_path)
 
-    print(f"Period       : {result['period']}")
-    print(f"Opening bal  : ${result['opening_balance']:,.2f}")
-    print(f"Closing bal  : ${result['closing_balance']:,.2f}")
-    print(f"Transactions : {len(result['transactions'])}")
-    print()
+        print(f"Period       : {result['period']}")
+        print(f"Opening bal  : ${result['opening_balance']:,.2f}")
+        print(f"Closing bal  : ${result['closing_balance']:,.2f}")
+        print(f"Transactions : {len(result['transactions'])}")
+        print()
 
-    for t in result["transactions"]:
-        w = f"-${t.withdrawal:>8.2f}" if t.withdrawal else " " * 10
-        d = f"+${t.deposit:>8.2f}" if t.deposit else " " * 10
-        b = f"  bal=${t.balance:,.2f}" if t.balance else ""
-        print(f"  {t.date:<10}  {t.description:<40}  {w}  {d}{b}")
+        for t in result["transactions"]:
+            w = f"-${t.withdrawal:>8.2f}" if t.withdrawal else " " * 10
+            d = f"+${t.deposit:>8.2f}" if t.deposit else " " * 10
+            b = f"  bal=${t.balance:,.2f}" if t.balance else ""
+            print(f"  {t.date:<10}  {t.description:<40}  {w}  {d}{b}")
 
-    output = {
-        "period": result["period"],
-        "opening_balance": result["opening_balance"],
-        "closing_balance": result["closing_balance"],
-        "transactions": [asdict(t) for t in result["transactions"]],
-    }
-    json_path = pdf_path.replace(".pdf", ".json")
-    with open(json_path, "w") as f:
-        json.dump(output, f, indent=2)
-    print(f"\nJSON written to {json_path}")
+        output = {
+            "period": result["period"],
+            "opening_balance": result["opening_balance"],
+            "closing_balance": result["closing_balance"],
+            "transactions": [asdict(t) for t in result["transactions"]],
+        }
+        json_path = pdf_path.replace(".pdf", ".json")
+        with open(json_path, "w") as f:
+            json.dump(output, f, indent=2)
+        print(f"\nJSON written to {json_path}")
+    else:
+        pdf_bytes = sys.stdin.buffer.read()
+        result = parse_rbc_statement_from_bytes(pdf_bytes)
+        output = {
+            "period": result["period"],
+            "opening_balance": result["opening_balance"],
+            "closing_balance": result["closing_balance"],
+            "transactions": [asdict(t) for t in result["transactions"]],
+        }
+        json.dump(output, sys.stdout)
