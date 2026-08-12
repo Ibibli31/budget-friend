@@ -14,11 +14,12 @@ CREATE TABLE categories(
 
 CREATE TABLE transactions(
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  amount DECIMAL(10,2) NOT NULL, 
+  amount DECIMAL(10,2) NOT NULL,
   date DATE NOT NULL,
-  merchant VARCHAR NOT NULL, 
+  merchant VARCHAR NOT NULL,
   description TEXT, -- nullable (optional)
-  created_at TIMESTAMPTZ NOT NULL, 
+  source VARCHAR NOT NULL, -- short identifier for which statement/card this came from, e.g. "rbc_debit"
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   user_id BIGINT REFERENCES users (id) ON DELETE CASCADE NOT NULL,
   category_id BIGINT REFERENCES categories (id) ON DELETE SET NULL
 );
