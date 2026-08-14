@@ -15,6 +15,10 @@ async function clearTransactions() {
   await query('DELETE FROM transactions WHERE user_id = $1', [DEFAULT_USER_ID]);
 }
 
+async function clearCustomCategories() {
+  await query('DELETE FROM categories WHERE user_id = $1', [DEFAULT_USER_ID]);
+}
+
 async function insertTransaction({
   date,
   amount = 10,
@@ -31,4 +35,4 @@ async function insertTransaction({
   return result.rows[0];
 }
 
-module.exports = { ensureDefaultUser, clearTransactions, insertTransaction, pool };
+module.exports = { ensureDefaultUser, clearTransactions, clearCustomCategories, insertTransaction, pool };

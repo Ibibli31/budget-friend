@@ -1,45 +1,71 @@
 # budget-friend
 A website to make budgets easier!
 
-REASON behind this project
-- I want to get better a tracking my budget but sitting down and looking at my expenses to categorizing everything is annoying
+## Reason behind this project
 
-GOALS of this project
-tldr
-- Create a site that takes in debit/credit card statements and returns a cleanly formatted data on how spent money
+I want to get better at tracking my budget, but sitting down and manually
+categorizing every expense is annoying.
 
-features
-- Allows you to give your debit/credit card statements to the app so it can collect your transactions of the month
-- Allows you to see your transactions of the month
-- Allows you to see how you spent money in the past months (keeps archive of past months)
+## Goal
 
+Create a site that takes in debit/credit card statements and returns cleanly
+formatted data on how I spent money — with categorization that doesn't
+require re-doing the same manual work every month.
 
-TECH STACK
-Frontend: React (component-based, potential for React Native later)
+## Tech stack
 
-Backend: Express.js (lightweight, good documentation, familiar)
-Node.js with Python script integration for PDF parsing
-Communication via stdin/stdout using child processes
+- **Frontend:** React (component-based, potential for React Native later)
+- **Backend:** Express.js, with a Python script for PDF parsing (communication
+  via stdin/stdout using child processes)
+- **Database:** PostgreSQL — stable schema, relationships (Users → Categories
+  → Transactions), supports the queries this app needs
+- **API:** REST
+- **File handling:** Multer, in-memory buffers only (no disk writes), files
+  discarded immediately after parsing — no sensitive info (account/card
+  numbers) is ever stored
 
-Database: SQL (PostgreSQL or MySQL - you haven't decided which yet)
-Reasoning: stable schema, relationships (Users → Accounts → Transactions), complex queries
+## v1 — functional for personal use
 
-API: REST API (simple enough for your needs, scalable)
+v1 is scoped to be usable by me, locally, as fast as possible. No
+deployment, no real auth — everything runs on `localhost` against the
+existing hardcoded single-user row.
 
-Authentication: Clerk (easy React integration, free tier, good docs)
+**Core loop:**
+- Upload an RBC debit statement (single format for now) → parsed → checked
+  for duplicates against already-uploaded periods → persisted.
+- View the current month's transactions (archive/past-months browsing is a
+  v2 feature — the `month`/`year` filters already exist to make that cheap
+  later).
 
-File Handling:
-Multer for file uploads (or native Express support)
-Process files in memory buffers (no disk writes)
-HTTPS for encrypted transit
-Immediate deletion after parsing
+**Categorization:**
+- Manual categorization via an inline dropdown per transaction.
+- Merchant memory: once a merchant is categorized, future transactions from
+  that merchant auto-apply the same category.
+- A hardcoded default set of categories ships with the app (Groceries,
+  Dining, Transport, Bills, Shopping, Income, Other, etc.). Custom
+  categories are supported by the backend, but there's no "add category" UI
+  yet — add one via the API/SQL directly if needed.
 
-PDF Parsing:
-Python script (called from Node.js)
-Receives data via stdin, outputs parsed transactions via stdout
+**Data integrity:**
+- Duplicate-upload protection, so re-uploading the same statement doesn't
+  double-insert transactions.
+- `PATCH`/`DELETE` on a transaction, to fix parser mistakes (merchant,
+  amount, description) or remove a bad row — the same endpoint also handles
+  category assignment.
 
-Security approach:
-HTTPS in transit
-In-memory processing only
-No storage of sensitive info (account numbers, card numbers)
-Files deleted immediately after transaction extraction
+**Frontend:**
+- A single page: upload control, a summary strip (total spent, total by
+  category), and the current month's transaction list with an inline
+  category dropdown and edit/delete per row.
+
+## Future additions (post-v1)
+
+- Multi-bank/format parser templates — the parser currently only handles
+  RBC debit statements; other banks/cards will need their own column
+  templates.
+- Archive view — browsing past months, not just the current one.
+- Real authentication (Clerk) and deployment/hosting, so the app is usable
+  outside `localhost`.
+- "Add category" UI, instead of requiring direct DB/API access.
+- Smarter auto-categorization — e.g. a rules engine (regex/pattern-based)
+  beyond simple merchant memory.
