@@ -15,4 +15,20 @@ async function clearTransactions() {
   await query('DELETE FROM transactions WHERE user_id = $1', [DEFAULT_USER_ID]);
 }
 
-module.exports = { ensureDefaultUser, clearTransactions, pool };
+async function insertTransaction({
+  date,
+  amount = 10,
+  merchant = 'Test Merchant',
+  description = null,
+  source = 'rbc_debit',
+}) {
+  const result = await query(
+    `INSERT INTO transactions (amount, date, merchant, description, source, user_id, category_id)
+     VALUES ($1, $2, $3, $4, $5, $6, NULL)
+     RETURNING *`,
+    [amount, date, merchant, description, source, DEFAULT_USER_ID]
+  );
+  return result.rows[0];
+}
+
+module.exports = { ensureDefaultUser, clearTransactions, insertTransaction, pool };
