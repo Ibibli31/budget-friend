@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "cd back-end && source venv/bin/activate && python -m pytest tests/ -v",
-    "test:js": "node --test tests/**/*.test.js"
+    "test:js": "node --require ./tests/setup.js --test --test-concurrency=1 tests/**/*.test.js"
   },
   "keywords": [],
   "author": "",
