@@ -16,7 +16,7 @@ from pdf_parser import (
     parse_rbc_statement,
 )
 
-SAMPLE_PDF = os.path.join(os.path.dirname(__file__), "..", "sample_statement.pdf")
+SAMPLE_PDF = os.path.join(os.path.dirname(__file__), "sample_statement.pdf")
 
 
 def word(text, x0, x1, y=0):

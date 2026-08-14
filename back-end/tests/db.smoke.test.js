@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { pool, query } = require('../db');
+const { pool, query } = require('../src/db');
 
 test('db module connects and runs a trivial query', async () => {
   const result = await query('SELECT 1 AS ok');

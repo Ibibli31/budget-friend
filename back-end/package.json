@@ -2,9 +2,9 @@
   "name": "back-end",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "cd back-end && source venv/bin/activate && python -m pytest tests/ -v",
+    "test": "source parser/venv/bin/activate && python -m pytest parser/tests/ -v",
     "test:js": "node --require ./tests/setup.js --test --test-concurrency=1 tests/**/*.test.js"
   },
   "keywords": [],

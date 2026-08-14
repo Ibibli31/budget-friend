@@ -25,7 +25,7 @@ router.post('/', upload.single('pdf'), (req, res) => {
   const { source } = req.body;
   if (!source) return res.status(400).json({ error: 'source is required' });
 
-  const parserPath = path.join(__dirname, '..', 'pdf_parser.py');
+  const parserPath = path.join(__dirname, '..', '..', 'parser', 'pdf_parser.py');
   const python = spawn('python3', [parserPath]);
 
   let stdout = '';

@@ -1,0 +1,1 @@
+enter psql: psql -d budget_friend -f db/schema.sql

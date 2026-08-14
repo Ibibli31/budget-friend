@@ -1,7 +1,7 @@
 const { test, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 
-const app = require('../index');
+const app = require('../src/index');
 const { ensureDefaultUser, clearTransactions, insertTransaction, pool } = require('./helpers/testDb');
 
 let server;

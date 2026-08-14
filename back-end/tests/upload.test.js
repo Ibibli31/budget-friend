@@ -3,11 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-const app = require('../index');
-const { query } = require('../db');
+const app = require('../src/index');
+const { query } = require('../src/db');
 const { ensureDefaultUser, clearTransactions, pool } = require('./helpers/testDb');
 
-const SAMPLE_PDF = path.join(__dirname, '..', 'sample_statement.pdf');
+const SAMPLE_PDF = path.join(__dirname, '..', 'parser', 'tests', 'sample_statement.pdf');
 
 let server;
 let baseUrl;
