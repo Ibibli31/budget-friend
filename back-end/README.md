@@ -46,6 +46,15 @@ Connection is configured via the standard `pg` environment variables
 | `DATABASE_URL` / `PG*` | Postgres connection, read by `src/db.js` via `pg`'s defaults |
 | `DEFAULT_USER_ID` | id of the seeded user row from step 2 above; read via `src/config.js` |
 
+Neither has a fallback in code. Start the API with both set:
+
+```
+PGDATABASE=budget_friend DEFAULT_USER_ID=1 node src/index.js
+```
+
+`npm start` from the repo root supplies both defaults and starts the front end
+alongside — see the root [README](../README.md#running-locally).
+
 ## Duplicate uploads
 
 Re-uploading a statement that overlaps one already imported skips the rows

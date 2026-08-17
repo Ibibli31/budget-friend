@@ -24,6 +24,70 @@ require re-doing the same manual work every month.
   discarded immediately after parsing — no sensitive info (account/card
   numbers) is ever stored
 
+## Running locally
+
+One-time setup: PostgreSQL 15+, the schema, and the seeded user — see
+[back-end/README.md](back-end/README.md). Then install every workspace's
+dependencies:
+
+```
+npm run install:all
+```
+
+To run the app:
+
+```
+npm start
+```
+
+That starts both servers together, tagging each line of output `[api]` or
+`[web]`. Open **http://localhost:5173** — Vite proxies `/api` to the API on
+port 3000, so the front end is the only URL you need.
+
+**Ctrl+C stops both.** There is no stop script and none is needed; closing the
+terminal stops them too. If a port is somehow still held afterwards,
+`lsof -ti:3000 -ti:5173 | xargs kill` clears it.
+
+### Running the servers separately
+
+Useful when you want to restart one without the other, or read one's output on
+its own:
+
+```
+npm run start:api    # API only, port 3000
+npm run start:web    # front end only, port 5173
+```
+
+### Environment variables
+
+`npm start` supplies both of these, so you only need them when running
+`node back-end/src/index.js` directly. Neither has a fallback in code:
+
+| Variable | Default in `npm start` | Without it |
+| --- | --- | --- |
+| `PGDATABASE` | `budget_friend` | `pg` connects to a database named after your OS user; every request 500s with `relation "transactions" does not exist` |
+| `DEFAULT_USER_ID` | `1` | queries are scoped to `undefined` and every list comes back empty |
+
+Exporting either one in your shell overrides the default. `1` is the id of the
+seeded user row — confirm it with:
+
+```
+psql -d budget_friend -c "SELECT id, username FROM users;"
+```
+
+### The list only ever shows the current month
+
+The transaction list requests the current calendar month, so older data is
+invisible in the UI even though it is in the database. A fresh database with
+only the sample March 2004 statement shows "No transactions this month" —
+that is correct behaviour, not a bug. Upload a recent statement to see rows.
+
+To view what months you have:
+
+```
+psql -d budget_friend -c "SELECT to_char(date,'YYYY-MM') AS month, count(*) FROM transactions GROUP BY 1 ORDER BY 1 DESC;"
+```
+
 ## v1 — functional for personal use
 
 v1 is scoped to be usable by me, locally, as fast as possible. No

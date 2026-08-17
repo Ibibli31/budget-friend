@@ -1,0 +1,15 @@
+{
+  "name": "budget-friend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Runs the API and the front-end dev server together",
+  "scripts": {
+    "start": "concurrently -n api,web -c blue,magenta \"npm:start:api\" \"npm:start:web\"",
+    "start:api": "PGDATABASE=${PGDATABASE:-budget_friend} DEFAULT_USER_ID=${DEFAULT_USER_ID:-1} node back-end/src/index.js",
+    "start:web": "npm --prefix front-end run dev",
+    "install:all": "npm install && npm --prefix back-end install && npm --prefix front-end install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
