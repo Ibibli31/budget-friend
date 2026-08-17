@@ -63,9 +63,35 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
-export async function getTransactions(): Promise<Transaction[]> {
-  const body = await request<{ transactions: Transaction[] }>('/transactions')
+// the fields PATCH /api/transactions/:id accepts
+export type TransactionEdit = Partial<
+  Pick<Transaction, 'merchant' | 'amount' | 'description' | 'date' | 'category_id'>
+>
+
+export async function getTransactions(
+  period?: { month: number; year: number },
+): Promise<Transaction[]> {
+  const query = period ? `?month=${period.month}&year=${period.year}` : ''
+  const body = await request<{ transactions: Transaction[] }>(
+    `/transactions${query}`,
+  )
   return body.transactions
+}
+
+export async function updateTransaction(
+  id: number,
+  edit: TransactionEdit,
+): Promise<Transaction> {
+  const body = await request<{ transaction: Transaction }>(`/transactions/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(edit),
+  })
+  return body.transaction
+}
+
+export async function deleteTransaction(id: number): Promise<void> {
+  await request<{ id: number }>(`/transactions/${id}`, { method: 'DELETE' })
 }
 
 export async function getCategories(): Promise<Category[]> {

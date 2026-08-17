@@ -1,6 +1,13 @@
 import { afterEach, expect, test, vi } from 'vitest'
 
-import { ApiError, getCategories, getTransactions, uploadStatement } from './api'
+import {
+  ApiError,
+  deleteTransaction,
+  getCategories,
+  getTransactions,
+  updateTransaction,
+  uploadStatement,
+} from './api'
 
 // stubs the global fetch so these tests never touch a real server
 function stubFetch(response: Partial<Response>) {
@@ -97,4 +104,37 @@ test('falls back to the status text when the error body is not json', async () =
   const failure = await getCategories().catch((err: unknown) => err)
 
   expect(failure).toMatchObject({ status: 502, message: 'Bad Gateway' })
+})
+
+test('filters transactions by month and year', async () => {
+  const fetchMock = stubFetch({ json: async () => ({ transactions: [] }) })
+
+  await getTransactions({ month: 2, year: 2024 })
+
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/transactions?month=2&year=2024')
+})
+
+test('patches only the fields it is given', async () => {
+  const fetchMock = stubFetch({
+    json: async () => ({ transaction: { id: 1, merchant: 'Loblaws' } }),
+  })
+
+  const transaction = await updateTransaction(1, { merchant: 'Loblaws' })
+
+  const [path, init] = fetchMock.mock.calls[0]
+  expect(path).toBe('/api/transactions/1')
+  expect(init.method).toBe('PATCH')
+  expect(init.headers).toMatchObject({ 'Content-Type': 'application/json' })
+  expect(JSON.parse(init.body)).toEqual({ merchant: 'Loblaws' })
+  expect(transaction).toEqual({ id: 1, merchant: 'Loblaws' })
+})
+
+test('deletes a transaction by id', async () => {
+  const fetchMock = stubFetch({ json: async () => ({ id: 1 }) })
+
+  await deleteTransaction(1)
+
+  const [path, init] = fetchMock.mock.calls[0]
+  expect(path).toBe('/api/transactions/1')
+  expect(init.method).toBe('DELETE')
 })

@@ -1,4 +1,8 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// DATE arrives as the stored YYYY-MM-DD string, BIGINT as a number.
+types.setTypeParser(types.builtins.DATE, value => value);
+types.setTypeParser(types.builtins.INT8, Number);
 
 // Connection is configured entirely via standard `pg` environment variables
 // (DATABASE_URL, or PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE). See README.

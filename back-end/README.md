@@ -71,7 +71,7 @@ so this needs a custom date range to happen.
 
 ## Shared modules
 
-- `src/db.js` — shared `pg` `Pool`, `query()`, and `transaction()` helpers used by routes.
+- `src/db.js` — shared `pg` `Pool`, `query()`, and `transaction()` helpers used by routes. Also registers the `pg` type parsers that return `DATE` as a `YYYY-MM-DD` string and `BIGINT` as a number, so ids and dates serialize as JSON numbers and plain dates.
 - `src/config.js` — exports `DEFAULT_USER_ID`, the hardcoded user id for v1.
 - `src/statementRows.js` — turns parsed statement rows into the columns `transactions` stores.
 

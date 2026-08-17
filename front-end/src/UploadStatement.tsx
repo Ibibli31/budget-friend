@@ -8,7 +8,11 @@ const SOURCES = [
   { value: 'rbc_credit', label: 'RBC credit' },
 ]
 
-function UploadStatement() {
+type Props = {
+  onUploaded?: () => void
+}
+
+function UploadStatement({ onUploaded }: Props) {
   const fileInputId = useId()
   const sourceInputId = useId()
 
@@ -29,6 +33,7 @@ function UploadStatement() {
 
     try {
       setResult(await uploadStatement(file, source))
+      onUploaded?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
