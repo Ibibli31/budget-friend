@@ -12,15 +12,24 @@
 Requires **PostgreSQL 15 or newer** — the transactions dedupe constraint uses
 `UNIQUE NULLS NOT DISTINCT`, which older versions reject with a syntax error.
 
-1. Create the database and apply the schema:
+1. Create the database and apply the schema, then the migrations `schema.sql`
+   does not already include:
    ```
    psql -d budget_friend -f db/schema.sql
+   psql -d budget_friend -f db/migrations/0002_seed_default_categories.sql
+   psql -d budget_friend -f db/migrations/0003_unique_category_name_per_user.sql
    ```
-   New changes ship as numbered files in `db/migrations/`; apply any not yet
-   reflected in your database in order, e.g.:
+   `schema.sql` is the current table shape, so `0001` and `0004` are already
+   baked into it — running them on a fresh database will fail. `0002` and
+   `0003` are not, so a fresh database needs them.
+
+   **Upgrading a database created before 2026-08-16** — run `0004` on it:
    ```
-   psql -d budget_friend -f db/migrations/0001_add_transaction_source.sql
+   psql -d budget_friend -f db/migrations/0004_unique_transaction_per_upload.sql
    ```
+   Without it every upload returns 500: the route names
+   `transactions_dedupe_unique` directly. Apply it to `budget_friend_test` too,
+   or the upload tests fail.
 2. Seed the single hardcoded user (v1 has no auth — every persisted
    transaction and read is scoped to this one row):
    ```
