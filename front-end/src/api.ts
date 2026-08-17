@@ -11,12 +11,12 @@ export type Category = {
 
 export type Transaction = {
   id: number
-  // postgres DECIMAL comes back as a string, so it stays a string here
   amount: string
   date: string
   merchant: string
   description: string | null
   source: string
+  occurrence: number // 1, 2, ... for rows a statement repeats verbatim
   created_at: string
   user_id: number
   category_id: number | null
@@ -32,9 +32,18 @@ export class ApiError extends Error {
   }
 }
 
+export type UploadResult = {
+  period: string
+  opening_balance: number
+  closing_balance: number
+  transactions: Transaction[]
+  inserted_count: number
+  skipped_count: number
+}
+
 // sends a request and unwraps the json body, throwing ApiError on a bad status
-async function request<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`)
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, init)
 
   let body: unknown = null
   try {
@@ -62,4 +71,16 @@ export async function getTransactions(): Promise<Transaction[]> {
 export async function getCategories(): Promise<Category[]> {
   const body = await request<{ categories: Category[] }>('/categories')
   return body.categories
+}
+
+// posts the pdf and source as multipart form data
+export async function uploadStatement(
+  pdf: File,
+  source: string,
+): Promise<UploadResult> {
+  const form = new FormData()
+  form.append('source', source)
+  form.append('pdf', pdf)
+
+  return request<UploadResult>('/upload', { method: 'POST', body: form })
 }

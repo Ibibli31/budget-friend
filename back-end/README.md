@@ -9,6 +9,9 @@
 
 ## Database setup
 
+Requires **PostgreSQL 15 or newer** — the transactions dedupe constraint uses
+`UNIQUE NULLS NOT DISTINCT`, which older versions reject with a syntax error.
+
 1. Create the database and apply the schema:
    ```
    psql -d budget_friend -f db/schema.sql
@@ -34,10 +37,34 @@ Connection is configured via the standard `pg` environment variables
 | `DATABASE_URL` / `PG*` | Postgres connection, read by `src/db.js` via `pg`'s defaults |
 | `DEFAULT_USER_ID` | id of the seeded user row from step 2 above; read via `src/config.js` |
 
+## Duplicate uploads
+
+Re-uploading a statement that overlaps one already imported skips the rows
+already stored and imports only the new ones, reporting both counts.
+
+A row is identified by `(user_id, source, date, amount, merchant, description,
+occurrence)`, enforced by the `transactions_dedupe_unique` constraint. Each
+insert uses `ON CONFLICT DO NOTHING`, so a collision skips that row instead of
+failing the whole statement. `NULLS NOT DISTINCT` is required because
+`description` is nullable — without it, rows with no description never collide
+and would duplicate on every upload.
+
+`occurrence` exists because a statement can legitimately list the same
+date/amount/merchant/description twice — two $20 ATM withdrawals on one day —
+with nothing else to tell them apart. `src/statementRows.js` numbers repeats
+within a statement 1, 2, 3..., so both rows persist. Re-uploads still
+deduplicate because the same statement always numbers the same way.
+
+The one gap: numbering only lines up if both uploads contain the whole day. A
+statement boundary splitting a day across two PDFs would number each half's row
+as 1 and wrongly skip the second. RBC statements run on a fixed monthly cycle,
+so this needs a custom date range to happen.
+
 ## Shared modules
 
 - `src/db.js` — shared `pg` `Pool`, `query()`, and `transaction()` helpers used by routes.
 - `src/config.js` — exports `DEFAULT_USER_ID`, the hardcoded user id for v1.
+- `src/statementRows.js` — turns parsed statement rows into the columns `transactions` stores.
 
 ## Tests
 

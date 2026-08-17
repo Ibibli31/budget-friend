@@ -21,5 +21,8 @@ CREATE TABLE transactions(
   source VARCHAR NOT NULL, -- short identifier for which statement/card this came from, e.g. "rbc_debit"
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   user_id BIGINT REFERENCES users (id) ON DELETE CASCADE NOT NULL,
-  category_id BIGINT REFERENCES categories (id) ON DELETE SET NULL
+  category_id BIGINT REFERENCES categories (id) ON DELETE SET NULL,
+  occurrence SMALLINT NOT NULL DEFAULT 1, -- 1, 2, ... for rows a statement repeats verbatim
+  CONSTRAINT transactions_dedupe_unique
+    UNIQUE NULLS NOT DISTINCT (user_id, source, date, amount, merchant, description, occurrence)
 );

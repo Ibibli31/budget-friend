@@ -25,12 +25,13 @@ async function insertTransaction({
   merchant = 'Test Merchant',
   description = null,
   source = 'rbc_debit',
+  occurrence = 1,
 }) {
   const result = await query(
-    `INSERT INTO transactions (amount, date, merchant, description, source, user_id, category_id)
-     VALUES ($1, $2, $3, $4, $5, $6, NULL)
+    `INSERT INTO transactions (amount, date, merchant, description, occurrence, source, user_id, category_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
      RETURNING *`,
-    [amount, date, merchant, description, source, DEFAULT_USER_ID]
+    [amount, date, merchant, description, occurrence, source, DEFAULT_USER_ID]
   );
   return result.rows[0];
 }

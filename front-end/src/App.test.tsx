@@ -3,10 +3,9 @@ import { render, screen } from '@testing-library/react'
 
 import App from './App'
 
-// proves the jsdom + react testing library harness renders real components;
-// this gets replaced by real assertions once App is more than the scaffold
-test('renders the app', () => {
+test('renders the upload control', () => {
   render(<App />)
 
-  expect(screen.getByRole('heading', { name: 'Vite + React' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Budget Friend' })).toBeInTheDocument()
+  expect(screen.getByLabelText(/statement pdf/i)).toBeInTheDocument()
 })

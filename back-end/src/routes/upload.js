@@ -4,20 +4,10 @@ const { spawn } = require('child_process');
 const path = require('path');
 const { transaction } = require('../db');
 const { DEFAULT_USER_ID } = require('../config');
+const { toTransactionRows } = require('../statementRows');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
-
-const MONTHS = {
-  Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
-  Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
-};
-
-// Parser dates look like "15 Mar 2004"; Postgres wants an unambiguous ISO date.
-function toIsoDate(statementDate) {
-  const [day, mon, year] = statementDate.split(' ');
-  return `${year}-${MONTHS[mon]}-${day.padStart(2, '0')}`;
-}
 
 router.post('/', upload.single('pdf'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
@@ -47,29 +37,33 @@ router.post('/', upload.single('pdf'), (req, res) => {
     }
 
     try {
-      const rows = await transaction(async client => {
+      const { inserted, skipped } = await transaction(async client => {
         const inserted = [];
-        for (const t of parsed.transactions) {
-          if (t.deposit == null && t.withdrawal == null) {
-            throw new Error(`Transaction row has no deposit or withdrawal amount: ${JSON.stringify(t)}`);
-          }
-          // Withdrawals/deposits map onto the single signed `amount` column.
-          const amount = t.deposit != null ? t.deposit : -t.withdrawal;
+        let skipped = 0;
+        for (const row of toTransactionRows(parsed.transactions)) {
+          // skips rows an earlier upload already persisted
           const result = await client.query(
-            `INSERT INTO transactions (amount, date, merchant, description, source, user_id, category_id)
-             VALUES ($1, $2, $3, $4, $5, $6, NULL)
+            `INSERT INTO transactions (amount, date, merchant, description, occurrence, source, user_id, category_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
+             ON CONFLICT ON CONSTRAINT transactions_dedupe_unique DO NOTHING
              RETURNING *`,
-            [amount, toIsoDate(t.date), t.merchant, t.description, source, DEFAULT_USER_ID]
+            [row.amount, row.date, row.merchant, row.description, row.occurrence, source, DEFAULT_USER_ID]
           );
-          inserted.push(result.rows[0]);
+          if (result.rows.length === 0) {
+            skipped += 1;
+          } else {
+            inserted.push(result.rows[0]);
+          }
         }
-        return inserted;
+        return { inserted, skipped };
       });
       res.json({
         period: parsed.period,
         opening_balance: parsed.opening_balance,
         closing_balance: parsed.closing_balance,
-        transactions: rows,
+        transactions: inserted,
+        inserted_count: inserted.length,
+        skipped_count: skipped,
       });
     } catch (err) {
       res.status(500).json({ error: 'Failed to persist transactions', details: err.message });
