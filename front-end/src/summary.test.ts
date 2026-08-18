@@ -106,3 +106,44 @@ test('ignores an amount that is not a number', () => {
 
   expect(summary.total).toBe(10)
 })
+
+test('nets a refund against its category', () => {
+  const summary = summarize(
+    [
+      transaction({ id: 1, amount: '-200.00', category_id: 7 }),
+      transaction({ id: 2, amount: '-42.50', category_id: 7 }),
+      transaction({ id: 3, amount: '200.00', category_id: 7 }),
+    ],
+    CATEGORIES,
+  )
+
+  expect(summary.total).toBe(42.5)
+  expect(summary.byCategory).toEqual([{ key: '7', name: 'Groceries', total: 42.5 }])
+})
+
+test('a category credited more than it was spent contributes nothing', () => {
+  const summary = summarize(
+    [
+      transaction({ id: 1, amount: '-42.50', category_id: 8 }),
+      transaction({ id: 2, amount: '1500.00', category_id: 7, merchant: 'Payroll' }),
+    ],
+    CATEGORIES,
+  )
+
+  expect(summary.total).toBe(42.5)
+  expect(summary.byCategory).toEqual([{ key: '8', name: 'Transport', total: 42.5 }])
+})
+
+test('leaves an uncategorized deposit out rather than netting it', () => {
+  const summary = summarize(
+    [
+      transaction({ id: 1, amount: '-42.50', category_id: null }),
+      transaction({ id: 2, amount: '1500.00', category_id: null, merchant: 'Payroll' }),
+    ],
+    CATEGORIES,
+  )
+
+  expect(summary.byCategory).toEqual([
+    { key: 'uncategorized', name: 'Uncategorized', total: 42.5 },
+  ])
+})
