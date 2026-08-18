@@ -19,9 +19,9 @@ Requires **PostgreSQL 15 or newer** — the transactions dedupe constraint uses
    psql -d budget_friend -f db/migrations/0002_seed_default_categories.sql
    psql -d budget_friend -f db/migrations/0003_unique_category_name_per_user.sql
    ```
-   `schema.sql` is the current table shape, so `0001` and `0004` are already
-   baked into it — running them on a fresh database will fail. `0002` and
-   `0003` are not, so a fresh database needs them.
+   `schema.sql` is the current table shape, so `0001`, `0004`, and `0005` are
+   already baked into it — running them on a fresh database will fail. `0002`
+   and `0003` are not, so a fresh database needs them.
 
    **Upgrading a database created before 2026-08-16** — run `0004` on it:
    ```
@@ -30,6 +30,13 @@ Requires **PostgreSQL 15 or newer** — the transactions dedupe constraint uses
    Without it every upload returns 500: the route names
    `transactions_dedupe_unique` directly. Apply it to `budget_friend_test` too,
    or the upload tests fail.
+
+   **Upgrading a database created before 2026-08-17** — run `0005` on it:
+   ```
+   psql -d budget_friend -f db/migrations/0005_merchant_memory_lookup_index.sql
+   ```
+   It only adds an index, so uploads work without it, just with a sequential
+   scan per parsed row.
 2. Seed the single hardcoded user (v1 has no auth — every persisted
    transaction and read is scoped to this one row):
    ```
@@ -77,6 +84,23 @@ The one gap: numbering only lines up if both uploads contain the whole day. A
 statement boundary splitting a day across two PDFs would number each half's row
 as 1 and wrongly skip the second. RBC statements run on a fixed monthly cycle,
 so this needs a custom date range to happen.
+
+## Merchant memory
+
+An uploaded row arrives already categorized when the user has a categorized
+transaction with the same merchant — compared trimmed and lowercased. The most
+recent such row by `date`, then `id`, supplies the category; with no match the
+row arrives with `category_id` null.
+
+There is no mapping table: the lookup is a subquery against `transactions` in
+the same insert. It runs only on insert, so editing one row's category leaves
+every other row alone, and clearing a category does not clear the memory —
+an earlier categorized row still matches.
+
+The parser labels every row whose description has no ` - ` separator
+`Bank transaction` (ATM withdrawals, cheques, transfers, interest). They all
+share that merchant, so categorizing one of them categorizes the rest on
+future uploads.
 
 ## Shared modules
 

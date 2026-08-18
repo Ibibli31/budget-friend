@@ -41,13 +41,21 @@ router.post('/', upload.single('pdf'), (req, res) => {
         const inserted = [];
         let skipped = 0;
         for (const row of toTransactionRows(parsed.transactions)) {
-          // skips rows an earlier upload already persisted
+          // Skips rows an earlier upload already persisted, and copies the
+          // category from this user's latest categorized row for the merchant.
           const result = await client.query(
             `INSERT INTO transactions (amount, date, merchant, description, occurrence, source, user_id, category_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, (
+               SELECT category_id FROM transactions
+               WHERE user_id = $7
+                 AND category_id IS NOT NULL
+                 AND lower(btrim(merchant)) = lower(btrim($8))
+               ORDER BY date DESC, id DESC
+               LIMIT 1
+             ))
              ON CONFLICT ON CONSTRAINT transactions_dedupe_unique DO NOTHING
              RETURNING *`,
-            [row.amount, row.date, row.merchant, row.description, row.occurrence, source, DEFAULT_USER_ID]
+            [row.amount, row.date, row.merchant, row.description, row.occurrence, source, DEFAULT_USER_ID, row.merchant]
           );
           if (result.rows.length === 0) {
             skipped += 1;

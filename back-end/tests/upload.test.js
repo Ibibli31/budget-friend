@@ -7,8 +7,11 @@ const app = require('../src/index');
 const { query } = require('../src/db');
 const {
   ensureDefaultUser,
+  ensureOtherUser,
   clearTransactions,
+  clearCustomCategories,
   insertTransaction,
+  insertCategory,
   pool,
 } = require('./helpers/testDb');
 
@@ -31,6 +34,7 @@ after(async () => {
 
 beforeEach(async () => {
   await clearTransactions();
+  await clearCustomCategories();
 });
 
 function buildForm({ withSource = true, pdfBuffer, source = 'rbc_debit' } = {}) {
@@ -182,4 +186,102 @@ test('missing source returns 400 and persists nothing', async () => {
 
   const dbRows = await query('SELECT * FROM transactions');
   assert.equal(dbRows.rows.length, 0);
+});
+
+async function uploadAndFind(merchant) {
+  const res = await fetch(`${baseUrl}/api/upload`, { method: 'POST', body: buildForm() });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  const row = body.transactions.find(t => t.merchant === merchant);
+  assert.ok(row, `upload returned no row for merchant ${merchant}`);
+  return row;
+}
+
+test('a merchant categorized earlier arrives pre-categorized on the next upload', async () => {
+  const category = await insertCategory('Shopping Memory');
+  await insertTransaction({
+    date: '2004-02-01',
+    amount: -50,
+    merchant: 'The Bay',
+    categoryId: category.id,
+  });
+
+  const row = await uploadAndFind('The Bay');
+  assert.equal(row.category_id, category.id);
+});
+
+test('a merchant with no prior categorized transaction arrives uncategorized', async () => {
+  await insertTransaction({ date: '2004-02-01', amount: -50, merchant: 'The Bay' });
+
+  const row = await uploadAndFind('The Bay');
+  assert.equal(row.category_id, null);
+});
+
+test('merchant matching ignores case and surrounding whitespace', async () => {
+  const category = await insertCategory('Shopping Memory');
+  await insertTransaction({
+    date: '2004-02-01',
+    amount: -50,
+    merchant: '  the bay ',
+    categoryId: category.id,
+  });
+
+  const row = await uploadAndFind('The Bay');
+  assert.equal(row.category_id, category.id);
+});
+
+test('the most recently dated categorized transaction wins', async () => {
+  const older = await insertCategory('Older Memory');
+  const newer = await insertCategory('Newer Memory');
+  await insertTransaction({
+    date: '2004-01-01',
+    amount: -50,
+    merchant: 'The Bay',
+    categoryId: older.id,
+  });
+  await insertTransaction({
+    date: '2004-02-01',
+    amount: -60,
+    merchant: 'The Bay',
+    categoryId: newer.id,
+  });
+
+  const row = await uploadAndFind('The Bay');
+  assert.equal(row.category_id, newer.id);
+});
+
+test('another user\'s categorized merchant is not borrowed', async () => {
+  const otherUserId = await ensureOtherUser();
+  const category = await insertCategory('Other User Memory', otherUserId);
+  await insertTransaction({
+    date: '2004-02-01',
+    amount: -50,
+    merchant: 'The Bay',
+    categoryId: category.id,
+    userId: otherUserId,
+  });
+
+  const row = await uploadAndFind('The Bay');
+  assert.equal(row.category_id, null);
+});
+
+test('categorizing an uploaded transaction never recategorizes its siblings', async () => {
+  const category = await insertCategory('Shopping Memory');
+  const uploaded = await uploadAndFind('The Bay');
+  const sibling = await insertTransaction({ date: '2004-02-01', amount: -50, merchant: 'The Bay' });
+
+  const patch = await fetch(`${baseUrl}/api/transactions/${uploaded.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category_id: category.id }),
+  });
+  assert.equal(patch.status, 200);
+
+  const others = await query(
+    'SELECT category_id FROM transactions WHERE id <> $1',
+    [uploaded.id]
+  );
+  assert.ok(others.rows.length > 1);
+  assert.ok(others.rows.every(r => r.category_id === null));
+  assert.equal(sibling.category_id, null);
 });
