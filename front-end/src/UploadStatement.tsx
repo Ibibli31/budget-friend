@@ -9,7 +9,7 @@ const SOURCES = [
 ]
 
 type Props = {
-  onUploaded?: () => void
+  onUploaded?: (result: UploadResult) => void
 }
 
 function UploadStatement({ onUploaded }: Props) {
@@ -32,8 +32,9 @@ function UploadStatement({ onUploaded }: Props) {
     setUploading(true)
 
     try {
-      setResult(await uploadStatement(file, source))
-      onUploaded?.()
+      const uploaded = await uploadStatement(file, source)
+      setResult(uploaded)
+      onUploaded?.(uploaded)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {

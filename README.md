@@ -75,12 +75,13 @@ seeded user row — confirm it with:
 psql -d budget_friend -c "SELECT id, username FROM users;"
 ```
 
-### The list only ever shows the current month
+### The list shows one month at a time
 
-The transaction list requests the current calendar month, so older data is
-invisible in the UI even though it is in the database. A fresh database with
-only the sample March 2004 statement shows "No transactions this month" —
-that is correct behaviour, not a bug. Upload a recent statement to see rows.
+The page opens on the current calendar month. Use the `‹`/`›` stepper above
+the list to reach other months; forward stops at the current month, backward
+is unbounded. The chosen month is not persisted — a refresh returns to the
+current month. A fresh database with only the sample March 2004 statement
+shows "No transactions for &lt;this month&gt;" until you step back to March 2004.
 
 To view what months you have:
 
@@ -127,7 +128,6 @@ existing hardcoded single-user row.
 - Multi-bank/format parser templates — the parser currently only handles
   RBC debit statements; other banks/cards will need their own column
   templates.
-- Archive view — browsing past months, not just the current one.
 - Real authentication (Clerk) and deployment/hosting, so the app is usable
   outside `localhost`.
 - "Add category" UI, instead of requiring direct DB/API access.

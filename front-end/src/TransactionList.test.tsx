@@ -35,6 +35,7 @@ function renderList(overrides: Partial<Props> = {}) {
   const props: Props = {
     transactions: [transaction()],
     categories: CATEGORIES,
+    period: { month: 8, year: 2026 },
     loading: false,
     error: null,
     onEdit,
@@ -69,7 +70,8 @@ test('says so while loading and when the month is empty', () => {
   expect(screen.getByText(/loading/i)).toBeInTheDocument()
 
   rerender(<TransactionList {...props} transactions={[]} loading={false} />)
-  expect(screen.getByText(/no transactions/i)).toBeInTheDocument()
+  expect(screen.getByText('No transactions for August 2026.')).toBeInTheDocument()
+  expect(screen.getByText(/upload a statement/i)).toBeInTheDocument()
 })
 
 test('assigning a category patches the row', async () => {

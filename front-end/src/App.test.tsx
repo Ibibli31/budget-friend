@@ -11,8 +11,23 @@ import {
   uploadStatement,
   type Category,
   type Transaction,
+  type UploadResult,
 } from './api'
 import App from './App'
+
+const NOW = new Date()
+const CURRENT = { month: NOW.getMonth() + 1, year: NOW.getFullYear() }
+const PREVIOUS =
+  CURRENT.month === 1
+    ? { month: 12, year: CURRENT.year - 1 }
+    : { month: CURRENT.month - 1, year: CURRENT.year }
+
+function label({ month, year }: { month: number; year: number }) {
+  return new Date(year, month - 1, 1).toLocaleDateString('en-CA', {
+    month: 'long',
+    year: 'numeric',
+  })
+}
 
 // mocks the api module rather than fetch
 vi.mock('./api', async () => {
@@ -57,7 +72,31 @@ function rowFor(merchant: string) {
 
 // the list has its own alert region, separate from the uploader's
 function listAlert() {
-  return within(screen.getByRole('region', { name: /this month/i })).getByRole('alert')
+  return within(screen.getByRole('region', { name: /transactions/i })).getByRole('alert')
+}
+
+function stepButton(direction: 'Previous' | 'Next') {
+  return screen.getByRole('button', { name: new RegExp(`${direction} month`, 'i') })
+}
+
+function uploadResult(overrides: Partial<UploadResult> = {}): UploadResult {
+  return {
+    period: 'August 1, 2026 to August 31, 2026',
+    opening_balance: 0,
+    closing_balance: 0,
+    transactions: [],
+    inserted_count: 0,
+    skipped_count: 0,
+    ...overrides,
+  }
+}
+
+async function uploadStatementFile(user: ReturnType<typeof userEvent.setup>) {
+  await user.upload(
+    screen.getByLabelText(/statement pdf/i),
+    new File(['%PDF-1.4'], 'statement.pdf', { type: 'application/pdf' }),
+  )
+  await user.click(screen.getByRole('button', { name: /^upload/i }))
 }
 
 beforeEach(() => {
@@ -88,29 +127,148 @@ test('loads the current month on mount', async () => {
 
 test('a successful upload reloads the transaction list', async () => {
   getTransactionsMock.mockResolvedValueOnce([]).mockResolvedValueOnce([transaction()])
-  uploadStatementMock.mockResolvedValue({
-    period: 'August 1, 2026 to August 31, 2026',
-    opening_balance: 0,
-    closing_balance: 0,
-    transactions: [transaction()],
-    inserted_count: 1,
-    skipped_count: 0,
-  })
+  uploadStatementMock.mockResolvedValue(
+    uploadResult({
+      transactions: [
+        transaction({
+          date: `${CURRENT.year}-${String(CURRENT.month).padStart(2, '0')}-01`,
+        }),
+      ],
+      inserted_count: 1,
+    }),
+  )
   const user = userEvent.setup()
 
   render(<App />)
 
   expect(await screen.findByText(/no transactions/i)).toBeInTheDocument()
-
-  await user.upload(
-    screen.getByLabelText(/statement pdf/i),
-    new File(['%PDF-1.4'], 'statement.pdf', { type: 'application/pdf' }),
-  )
-  await user.click(screen.getByRole('button', { name: /upload/i }))
+  await uploadStatementFile(user)
 
   await waitFor(() => {
     expect(screen.getByDisplayValue('Loblaws')).toBeInTheDocument()
   })
+})
+
+test('stepping back requests and renders the previous month', async () => {
+  getTransactionsMock
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([transaction({ merchant: 'Petro-Canada' })])
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  expect(await screen.findByText(label(CURRENT))).toBeInTheDocument()
+  await user.click(stepButton('Previous'))
+
+  await waitFor(() => {
+    expect(getTransactionsMock).toHaveBeenLastCalledWith(PREVIOUS)
+  })
+  expect(await screen.findByDisplayValue('Petro-Canada')).toBeInTheDocument()
+  expect(screen.getByText(label(PREVIOUS))).toBeInTheDocument()
+})
+
+test('stepping forward returns to the current month', async () => {
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByText(label(CURRENT))
+  await user.click(stepButton('Previous'))
+  await waitFor(() => expect(stepButton('Next')).toBeEnabled())
+
+  await user.click(stepButton('Next'))
+
+  await waitFor(() => {
+    expect(getTransactionsMock).toHaveBeenLastCalledWith(CURRENT)
+  })
+  expect(screen.getByText(label(CURRENT))).toBeInTheDocument()
+})
+
+test('the forward arrow is disabled on the current month', async () => {
+  render(<App />)
+
+  await screen.findByText(label(CURRENT))
+  expect(stepButton('Next')).toBeDisabled()
+  expect(stepButton('Previous')).toBeEnabled()
+})
+
+test('an upload lands on the month of the latest inserted transaction', async () => {
+  uploadStatementMock.mockResolvedValue(
+    uploadResult({
+      period: 'June 15, 2026 to July 14, 2026',
+      transactions: [
+        transaction({ id: 1, date: '2026-06-20' }),
+        transaction({ id: 2, date: '2026-07-02', merchant: 'Petro-Canada' }),
+      ],
+      inserted_count: 2,
+    }),
+  )
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByText(label(CURRENT))
+  await uploadStatementFile(user)
+
+  await waitFor(() => {
+    expect(getTransactionsMock).toHaveBeenLastCalledWith({ month: 7, year: 2026 })
+  })
+  expect(screen.getByText('July 2026')).toBeInTheDocument()
+})
+
+test('a fully duplicate re-upload falls back to the statement period end month', async () => {
+  uploadStatementMock.mockResolvedValue(
+    uploadResult({
+      period: 'June 15, 2026 to July 14, 2026',
+      transactions: [],
+      skipped_count: 12,
+    }),
+  )
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByText(label(CURRENT))
+  await uploadStatementFile(user)
+
+  await waitFor(() => {
+    expect(getTransactionsMock).toHaveBeenLastCalledWith({ month: 7, year: 2026 })
+  })
+})
+
+test('an upload with nothing to go on leaves the period alone', async () => {
+  uploadStatementMock.mockResolvedValue(
+    uploadResult({ period: 'statement', transactions: [] }),
+  )
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByText(label(CURRENT))
+  await user.click(stepButton('Previous'))
+  await waitFor(() => expect(getTransactionsMock).toHaveBeenLastCalledWith(PREVIOUS))
+
+  await uploadStatementFile(user)
+
+  await waitFor(() => {
+    expect(uploadStatementMock).toHaveBeenCalled()
+  })
+  expect(getTransactionsMock).toHaveBeenLastCalledWith(PREVIOUS)
+  expect(screen.getByText(label(PREVIOUS))).toBeInTheDocument()
+})
+
+test('an empty month names the period and points at the uploader', async () => {
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByText(label(CURRENT))
+  await user.click(stepButton('Previous'))
+
+  expect(
+    await screen.findByText(`No transactions for ${label(PREVIOUS)}.`),
+  ).toBeInTheDocument()
+  expect(screen.getByText(/upload a statement/i)).toBeInTheDocument()
 })
 
 test('assigning a category persists it and keeps it on screen', async () => {

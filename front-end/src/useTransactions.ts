@@ -11,27 +11,27 @@ import {
   type Transaction,
   type TransactionEdit,
 } from './api'
+import { currentPeriod, type Period } from './period'
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback
 }
 
-function currentPeriod() {
-  const now = new Date()
-  return { month: now.getMonth() + 1, year: now.getFullYear() }
-}
-
 export function useTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [period, setPeriod] = useState<Period>(currentPeriod)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // fetches the current month and the categories rows can be assigned to
-  const reload = useCallback(async () => {
+  // switches to a month and fetches it, along with the categories rows can be
+  // assigned to
+  const loadPeriod = useCallback(async (target: Period) => {
+    setPeriod(target)
+    setLoading(true)
     try {
       const [loadedTransactions, loadedCategories] = await Promise.all([
-        getTransactions(currentPeriod()),
+        getTransactions(target),
         getCategories(),
       ])
       setTransactions(loadedTransactions)
@@ -45,9 +45,9 @@ export function useTransactions() {
   }, [])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reload sets state after awaiting the fetch
-    void reload()
-  }, [reload])
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadPeriod sets state after awaiting the fetch
+    void loadPeriod(currentPeriod())
+  }, [loadPeriod])
 
   // patches the row and swaps in what the server returned, reporting failure
   const editTransaction = useCallback(async (id: number, edit: TransactionEdit) => {
@@ -75,9 +75,10 @@ export function useTransactions() {
   return {
     transactions,
     categories,
+    period,
     loading,
     error,
-    reload,
+    loadPeriod,
     editTransaction,
     removeTransaction,
   }

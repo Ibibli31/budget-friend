@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 
 import type { Category, Transaction, TransactionEdit } from './api'
+import { formatPeriod, type Period } from './period'
 
 // the editable text fields, held as strings while the row is being typed into
 type Draft = {
@@ -112,6 +113,7 @@ function TransactionRow({ transaction, categories, onEdit, onDelete }: RowProps)
 type ListProps = {
   transactions: Transaction[]
   categories: Category[]
+  period: Period
   loading: boolean
   error: string | null
   onEdit: (id: number, edit: TransactionEdit) => Promise<Transaction | null>
@@ -121,6 +123,7 @@ type ListProps = {
 function TransactionList({
   transactions,
   categories,
+  period,
   loading,
   error,
   onEdit,
@@ -130,7 +133,7 @@ function TransactionList({
 
   return (
     <section aria-labelledby={headingId}>
-      <h2 id={headingId}>This month</h2>
+      <h2 id={headingId}>Transactions</h2>
 
       {/* always-mounted live region for the outcome of an edit */}
       <p role="alert">{error}</p>
@@ -138,7 +141,10 @@ function TransactionList({
       {loading ? (
         <p>Loading transactions…</p>
       ) : transactions.length === 0 ? (
-        <p>No transactions this month.</p>
+        <>
+          <p>No transactions for {formatPeriod(period)}.</p>
+          <p>Upload a statement above to import that month.</p>
+        </>
       ) : (
         <table>
           <thead>
