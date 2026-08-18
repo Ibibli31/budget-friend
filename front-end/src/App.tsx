@@ -1,5 +1,6 @@
 import './App.css'
 import MonthStepper from './MonthStepper'
+import SummaryStrip from './SummaryStrip'
 import TransactionList from './TransactionList'
 import UploadStatement from './UploadStatement'
 import { uploadedPeriod } from './period'
@@ -24,6 +25,13 @@ function App() {
         onUploaded={result => void loadPeriod(uploadedPeriod(result) ?? period)}
       />
       <MonthStepper period={period} onChange={target => void loadPeriod(target)} />
+      <SummaryStrip
+        transactions={transactions}
+        categories={categories}
+        period={period}
+        loading={loading}
+        error={error}
+      />
       <TransactionList
         transactions={transactions}
         categories={categories}

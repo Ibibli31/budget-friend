@@ -70,6 +70,10 @@ function rowFor(merchant: string) {
   return screen.getByDisplayValue(merchant).closest('tr') as HTMLElement
 }
 
+function summary() {
+  return screen.getByRole('region', { name: /summary/i })
+}
+
 // the list has its own alert region, separate from the uploader's
 function listAlert() {
   return within(screen.getByRole('region', { name: /transactions/i })).getByRole('alert')
@@ -309,6 +313,121 @@ test('deleting a row removes it from the list', async () => {
     expect(screen.queryByDisplayValue('Loblaws')).not.toBeInTheDocument()
   })
   expect(screen.getByDisplayValue('Petro-Canada')).toBeInTheDocument()
+})
+
+test('summarizes the loaded month above the list', async () => {
+  getTransactionsMock.mockResolvedValue([
+    transaction({ id: 1, amount: '-42.50', category_id: 7 }),
+    transaction({ id: 2, amount: '-60.00', merchant: 'Petro-Canada' }),
+  ])
+
+  render(<App />)
+
+  await screen.findByDisplayValue('Loblaws')
+  expect(
+    within(summary()).getByText(new RegExp(`total spend for ${label(CURRENT)}`, 'i')),
+  ).toHaveTextContent('$102.50')
+  expect(
+    within(summary())
+      .getAllByRole('listitem')
+      .map(entry => entry.textContent),
+  ).toEqual(['Groceries$42.50', 'Uncategorized$60.00'])
+
+  // the strip precedes the list in the document
+  expect(
+    summary().compareDocumentPosition(screen.getByRole('region', { name: /transactions/i })),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+})
+
+test('the breakdown follows a category change in the list', async () => {
+  getTransactionsMock.mockResolvedValue([transaction({ amount: '-42.50' })])
+  updateTransactionMock.mockResolvedValue(
+    transaction({ amount: '-42.50', category_id: 7 }),
+  )
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByDisplayValue('Loblaws')
+  expect(within(summary()).getByRole('listitem')).toHaveTextContent(
+    'Uncategorized$42.50',
+  )
+
+  await user.selectOptions(within(rowFor('Loblaws')).getByLabelText(/category/i), '7')
+
+  await waitFor(() => {
+    expect(within(summary()).getByRole('listitem')).toHaveTextContent('Groceries$42.50')
+  })
+})
+
+test('the total follows a deleted row', async () => {
+  getTransactionsMock.mockResolvedValue([
+    transaction({ id: 1, amount: '-42.50' }),
+    transaction({ id: 2, amount: '-60.00', merchant: 'Petro-Canada' }),
+  ])
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByDisplayValue('Loblaws')
+  await user.click(within(rowFor('Loblaws')).getByRole('button', { name: /delete/i }))
+
+  await waitFor(() => {
+    expect(within(summary()).getByText(/total spend/i)).toHaveTextContent('$60.00')
+  })
+})
+
+test('the summary follows the month stepper', async () => {
+  getTransactionsMock
+    .mockResolvedValueOnce([transaction({ amount: '-42.50' })])
+    .mockResolvedValueOnce([
+      transaction({ id: 2, amount: '-60.00', merchant: 'Petro-Canada' }),
+    ])
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByDisplayValue('Loblaws')
+  await user.click(stepButton('Previous'))
+
+  await screen.findByDisplayValue('Petro-Canada')
+  expect(
+    within(summary()).getByText(new RegExp(`total spend for ${label(PREVIOUS)}`, 'i')),
+  ).toHaveTextContent('$60.00')
+})
+
+test('a failed month load withholds the previous month total', async () => {
+  getTransactionsMock
+    .mockResolvedValueOnce([transaction({ amount: '-42.50' })])
+    .mockRejectedValueOnce(new ApiError(500, 'Failed to fetch transactions'))
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByDisplayValue('Loblaws')
+  await user.click(stepButton('Previous'))
+
+  await waitFor(() => {
+    expect(listAlert()).toHaveTextContent('Failed to fetch transactions')
+  })
+  expect(within(summary()).queryByText('$42.50')).not.toBeInTheDocument()
+  expect(
+    within(summary()).getByText(new RegExp(`total spend for ${label(PREVIOUS)}`, 'i')),
+  ).toHaveTextContent('—')
+})
+
+test('an empty month summarizes as zero', async () => {
+  const user = userEvent.setup()
+
+  render(<App />)
+
+  await screen.findByText(label(CURRENT))
+  await user.click(stepButton('Previous'))
+
+  await waitFor(() => {
+    expect(within(summary()).getByText(/total spend/i)).toHaveTextContent('$0.00')
+  })
+  expect(within(summary()).getByText(/nothing to summarize/i)).toBeInTheDocument()
 })
 
 test('shows the server error message when an edit fails', async () => {
